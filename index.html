@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tesla Equity">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Tesla Equity</title>
+  <style>
+    :root {
+      --bg:#0b0d10; --panel:#15191f; --panel2:#1b2027; --text:#f6f7f9;
+      --muted:#8e98a5; --line:#2a313a; --good:#49d17d; --bad:#ff6b6b;
+      --accent:#f4f5f7; --loan:#8ab4ff; --market:#49d17d; --wback:#f5b942;
+    }
+    * { box-sizing:border-box; }
+    html { background:var(--bg); }
+    body {
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,Arial,sans-serif;
+      min-height:100%; -webkit-font-smoothing:antialiased;
+    }
+    .app { max-width:760px; margin:auto; padding:calc(18px + env(safe-area-inset-top)) 16px calc(34px + env(safe-area-inset-bottom)); }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+    h1 { font-size:28px; line-height:1.05; margin:0; letter-spacing:-.03em; }
+    .sub { color:var(--muted); font-size:13px; margin-top:7px; line-height:1.4; }
+    .pill { border:1px solid var(--line); color:var(--muted); border-radius:999px; padding:7px 10px; font-size:12px; white-space:nowrap; }
+    .hero { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:24px; padding:20px; }
+    .hero-label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+    .hero-value { font-size:42px; font-weight:750; letter-spacing:-.04em; margin-top:4px; }
+    .hero-note { margin-top:7px; font-size:14px; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:16px; min-width:0; }
+    .kicker { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.075em; }
+    .value { font-size:25px; font-weight:720; margin-top:5px; letter-spacing:-.025em; }
+    .tiny { font-size:12px; color:var(--muted); margin-top:5px; line-height:1.4; }
+    .good { color:var(--good); } .bad { color:var(--bad); }
+    .section { margin-top:20px; }
+    .section-title { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-bottom:10px; }
+    .section-title h2 { font-size:17px; margin:0; letter-spacing:-.015em; }
+    .section-title span { color:var(--muted); font-size:12px; }
+    .progress { height:8px; background:#252b33; border-radius:999px; overflow:hidden; margin-top:14px; }
+    .progress > div { height:100%; background:var(--accent); border-radius:999px; }
+    .row { display:flex; justify-content:space-between; gap:14px; margin-top:10px; font-size:13px; }
+    .row span:first-child { color:var(--muted); }
+    .chart-wrap { overflow:hidden; }
+    svg { width:100%; height:auto; display:block; }
+    .legend { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; color:var(--muted); font-size:12px; }
+    .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+    button, input { font:inherit; }
+    button { width:100%; min-height:48px; border:1px solid var(--line); border-radius:14px; background:var(--panel2); color:var(--text); font-weight:650; }
+    button:active { transform:scale(.99); }
+    .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    label { display:block; color:var(--muted); font-size:12px; }
+    input {
+      width:100%; min-height:48px; margin-top:6px; padding:0 12px;
+      background:#101318; border:1px solid var(--line); border-radius:12px; color:var(--text);
+      font-size:16px; outline:none;
+    }
+    input:focus { border-color:#6d7682; }
+    .source { color:var(--muted); font-size:12px; line-height:1.5; }
+    .source a { color:var(--text); text-decoration:none; border-bottom:1px solid var(--line); }
+    details { margin-top:12px; }
+    summary { color:var(--muted); font-size:13px; cursor:pointer; }
+    .footer { color:var(--muted); text-align:center; font-size:11px; line-height:1.5; margin-top:24px; }
+    @media (max-width:420px) {
+      .grid { gap:10px; }
+      .card { padding:14px; }
+      .value { font-size:22px; }
+      .hero-value { font-size:38px; }
+      .top { align-items:flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div>
+      <h1>Model 3 Equity</h1>
+      <div class="sub">2021 Long Range AWD · Acceleration Boost · 52,168 mi</div>
+    </div>
+    <div class="pill" id="todayPill">Today</div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-label">Market equity</div>
+    <div class="hero-value" id="marketEquity">—</div>
+    <div class="hero-note" id="marketEquityNote">Market value minus calculated loan balance</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="kicker">Loan remaining</div>
+      <div class="value" id="loanBalance">—</div>
+      <div class="tiny" id="loanLeft">—</div>
+    </div>
+    <div class="card">
+      <div class="kicker">Market value</div>
+      <div class="value" id="marketValue">—</div>
+      <div class="tiny">Current estimate</div>
+    </div>
+    <div class="card">
+      <div class="kicker">WBAC offer</div>
+      <div class="value" id="wbackValue">—</div>
+      <div class="tiny">Instant-sale benchmark</div>
+    </div>
+    <div class="card">
+      <div class="kicker">Instant-sale equity</div>
+      <div class="value" id="instantEquity">—</div>
+      <div class="tiny">WBAC minus loan</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Finance progress</h2><span id="paymentText"></span></div>
+    <div class="card">
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="row"><span>Payments made</span><strong id="paidText">—</strong></div>
+      <div class="row"><span>Final payment</span><strong>February 2029</strong></div>
+      <div class="row"><span>Original loan</span><strong>£50,000</strong></div>
+      <div class="row"><span>APR</span><strong>2.8%</strong></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Loan vs value</h2><span>through Feb 2029</span></div>
+    <div class="card chart-wrap">
+      <svg id="chart" viewBox="0 0 640 260" aria-label="Loan balance versus car values"></svg>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--loan)"></i>Loan</span>
+        <span><i class="dot" style="background:var(--market)"></i>Market estimate</span>
+        <span><i class="dot" style="background:var(--wback)"></i>WBAC benchmark</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Update valuation</h2><span>stored on this iPhone</span></div>
+    <div class="card">
+      <div class="edit-grid">
+        <label>Market estimate (£)
+          <input id="marketInput" type="number" inputmode="numeric" min="0" step="50">
+        </label>
+        <label>WBAC offer (£)
+          <input id="wbackInput" type="number" inputmode="numeric" min="0" step="10">
+        </label>
+      </div>
+      <label style="margin-top:10px">Valuation date
+        <input id="valueDateInput" type="date">
+      </label>
+      <button id="saveBtn" style="margin-top:12px">Save valuation</button>
+      <div class="tiny" id="saveMsg" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2>Market basis</h2><span id="sourceDate">10 Sep 2026</span></div>
+    <div class="card">
+      <div class="source">
+        Seed estimate: <strong style="color:var(--text)">£19,250</strong>, based on recent UK 2021 Model 3 Long Range AWD listings around 46k–56k miles.
+        Your WBAC quote is stored separately because it is a more realistic “sell it now” figure.
+      </div>
+      <details>
+        <summary>Comparable listing references</summary>
+        <div class="source" style="margin-top:10px">
+          <div>• White, 50,454 mi — £19,950</div>
+          <div>• White, 48,182 mi — £19,699</div>
+          <div>• White, 55,810 mi — £18,580</div>
+          <div>• 49,559 mi — £18,950</div>
+          <div>• 51,119 mi — £20,995</div>
+          <div>• 46,342 mi — £19,640</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="footer">
+    Loan balance is an amortisation estimate, not a lender settlement quote. Market value is an indicative retail/private-sale estimate and can differ from an actual sale price.
+  </div>
+</div>
+
+<script>
+(() => {
+  const P=50000, APR=.028, N=84, R=APR/12;
+  const PAY=P*R/(1-Math.pow(1+R,-N));
+  const firstPayment={y:2022,m:2}; // March 2022, zero-indexed month
+  const defaultState={market:19250,wback:16990,date:"2026-09-10"};
+
+  const fmt=n => "£"+Math.round(n).toLocaleString("en-GB");
+  const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
+
+  function loadState(){
+    try {
+      const raw=localStorage.getItem("teslaEquityState");
+      return raw ? {...defaultState,...JSON.parse(raw)} : defaultState;
+    } catch(e) { return defaultState; }
+  }
+  function saveState(s){ try{localStorage.setItem("teslaEquityState",JSON.stringify(s));}catch(e){} }
+
+  function paidCount(d){
+    let k=(d.getFullYear()-firstPayment.y)*12+(d.getMonth()-firstPayment.m)+1;
+    return clamp(k,0,N);
+  }
+  function balanceAfter(k){
+    if(k<=0) return P;
+    if(k>=N) return 0;
+    return P*Math.pow(1+R,k)-PAY*((Math.pow(1+R,k)-1)/R);
+  }
+
+  const today=new Date();
+  const paid=paidCount(today);
+  const bal=balanceAfter(paid);
+  const left=N-paid;
+  let state=loadState();
+
+  document.getElementById("todayPill").textContent=today.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  document.getElementById("loanBalance").textContent=fmt(bal);
+  document.getElementById("loanLeft").textContent=left+" payment"+(left===1?"":"s")+" remaining";
+  document.getElementById("paymentText").textContent=fmt(PAY)+"/month";
+  document.getElementById("paidText").textContent=paid+" of "+N;
+  document.getElementById("progressBar").style.width=(paid/N*100).toFixed(1)+"%";
+
+  const marketInput=document.getElementById("marketInput");
+  const wbackInput=document.getElementById("wbackInput");
+  const dateInput=document.getElementById("valueDateInput");
+  marketInput.value=state.market;
+  wbackInput.value=state.wback;
+  dateInput.value=state.date;
+
+  function renderValues(){
+    const market=Number(state.market)||0, wback=Number(state.wback)||0;
+    const marketEq=market-bal, instantEq=wback-bal;
+    document.getElementById("marketValue").textContent=fmt(market);
+    document.getElementById("wbackValue").textContent=fmt(wback);
+    const me=document.getElementById("marketEquity"), ie=document.getElementById("instantEquity");
+    me.textContent=(marketEq>=0?"+":"−")+fmt(Math.abs(marketEq));
+    ie.textContent=(instantEq>=0?"+":"−")+fmt(Math.abs(instantEq));
+    me.className="hero-value "+(marketEq>=0?"good":"bad");
+    ie.className="value "+(instantEq>=0?"good":"bad");
+    document.getElementById("marketEquityNote").textContent=marketEq>=0
+      ? "Approx. positive equity at the current market estimate"
+      : "Approx. negative equity at the current market estimate";
+    drawChart(market,wback);
+  }
+
+  function drawChart(market,wback){
+    const svg=document.getElementById("chart");
+    const W=640,H=260,L=46,RGT=14,T=18,B=32;
+    const plotW=W-L-RGT, plotH=H-T-B;
+    const maxY=50000;
+    const x=i=>L+(i/N)*plotW;
+    const y=v=>T+(1-v/maxY)*plotH;
+    let loanPts=[];
+    for(let i=0;i<=N;i++) loanPts.push(x(i).toFixed(1)+","+y(balanceAfter(i)).toFixed(1));
+    // Simple depreciation projection from current value: 0.75% per month, floor 9000
+    let marketPts=[], wbackPts=[];
+    for(let i=paid;i<=N;i++){
+      const t=i-paid;
+      const mv=Math.max(9000,market*Math.pow(.9925,t));
+      const wv=Math.max(7500,wback*Math.pow(.9925,t));
+      marketPts.push(x(i).toFixed(1)+","+y(mv).toFixed(1));
+      wbackPts.push(x(i).toFixed(1)+","+y(wv).toFixed(1));
+    }
+    const years=[2022,2023,2024,2025,2026,2027,2028,2029];
+    const yearPos=yr=> {
+      let idx=(yr-2022)*12-2; // Jan relative to first March payment
+      return clamp(idx,0,N);
+    };
+    let grid="";
+    [0,10000,20000,30000,40000,50000].forEach(v=>{
+      grid+=`<line x1="${L}" y1="${y(v)}" x2="${W-RGT}" y2="${y(v)}" stroke="#262c34" stroke-width="1"/>`;
+      if(v>0) grid+=`<text x="${L-7}" y="${y(v)+4}" text-anchor="end" fill="#7f8996" font-size="10">£${v/1000}k</text>`;
+    });
+    years.forEach(yr=>{
+      const xx=x(yearPos(yr));
+      grid+=`<text x="${xx}" y="${H-9}" text-anchor="middle" fill="#7f8996" font-size="10">${String(yr).slice(2)}</text>`;
+    });
+    svg.innerHTML=`
+      ${grid}
+      <polyline points="${loanPts.join(" ")}" fill="none" stroke="#8ab4ff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline points="${marketPts.join(" ")}" fill="none" stroke="#49d17d" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline points="${wbackPts.join(" ")}" fill="none" stroke="#f5b942" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <line x1="${x(paid)}" y1="${T}" x2="${x(paid)}" y2="${H-B}" stroke="#59616c" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="${x(paid)+5}" y="${T+11}" fill="#8e98a5" font-size="10">Now</text>
+    `;
+  }
+
+  document.getElementById("saveBtn").addEventListener("click",()=>{
+    const m=Number(marketInput.value), w=Number(wbackInput.value), d=dateInput.value;
+    if(!Number.isFinite(m)||m<0||!Number.isFinite(w)||w<0||!d){
+      document.getElementById("saveMsg").textContent="Please enter valid values and a date.";
+      return;
+    }
+    state={market:m,wback:w,date:d};
+    saveState(state);
+    renderValues();
+    document.getElementById("saveMsg").textContent="Saved on this device.";
+    setTimeout(()=>document.getElementById("saveMsg").textContent="",1800);
+  });
+
+  renderValues();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+  }
+})();
+</script>
+</body>
+</html>
