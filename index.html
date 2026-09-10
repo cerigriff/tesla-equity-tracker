@@ -100,17 +100,17 @@
     <div class="card">
       <div class="kicker">Market value</div>
       <div class="value" id="marketValue">—</div>
-      <div class="tiny">Current estimate</div>
+      <div class="tiny" id="estimateNote">Estimated today</div>
     </div>
     <div class="card">
-      <div class="kicker">WBAC offer</div>
+      <div class="kicker">Estimated instant-sale value</div>
       <div class="value" id="wbackValue">—</div>
-      <div class="tiny">Instant-sale benchmark</div>
+      <div class="tiny" id="quoteNote">Based on your last WBAC quote</div>
     </div>
     <div class="card">
       <div class="kicker">Instant-sale equity</div>
       <div class="value" id="instantEquity">—</div>
-      <div class="tiny">WBAC minus loan</div>
+      <div class="tiny">Estimated instant-sale value minus loan</div>
     </div>
   </div>
 
@@ -132,7 +132,7 @@
       <div class="legend">
         <span><i class="dot" style="background:var(--loan)"></i>Loan</span>
         <span><i class="dot" style="background:var(--market)"></i>Market estimate</span>
-        <span><i class="dot" style="background:var(--wback)"></i>WBAC benchmark</span>
+        <span><i class="dot" style="background:var(--wback)"></i>Instant-sale estimate</span>
       </div>
     </div>
   </div>
@@ -141,43 +141,37 @@
     <div class="section-title"><h2>Update mileage &amp; valuation</h2><span>stored on this iPhone</span></div>
     <div class="card">
       <label>Current mileage (miles)
-        <input id="mileageInput" type="number" inputmode="numeric" min="0" step="1" required>
+        <input id="mileageInput" type="number" inputmode="numeric" min="0" step="1">
       </label>
-      <div class="tiny">Mileage is recorded here; update prices below when you get a new valuation.</div>
-      <div class="edit-grid" style="margin-top:12px">
-        <label>Market estimate (£)
-          <input id="marketInput" type="number" inputmode="numeric" min="0" step="50">
-        </label>
-        <label>WBAC offer (£)
-          <input id="wbackInput" type="number" inputmode="numeric" min="0" step="10">
-        </label>
-      </div>
-      <label style="margin-top:10px">Valuation date
-        <input id="valueDateInput" type="date">
-      </label>
-      <button id="saveBtn" style="margin-top:12px">Save details</button>
+      <button id="saveMileageBtn" style="margin-top:12px">Update mileage</button>
+      <div class="tiny">Updates today's estimate without replacing your reference valuation.</div>
+      <details>
+        <summary>Add a fresh valuation</summary>
+        <div class="edit-grid" style="margin-top:12px">
+          <label>Market value (£)<input id="marketInput" type="number" inputmode="decimal" min="0"></label>
+          <label>WBAC quote (£)<input id="wbackInput" type="number" inputmode="decimal" min="0"></label>
+        </div>
+        <label style="margin-top:10px">Valuation date<input id="valueDateInput" type="date"></label>
+        <label style="margin-top:10px">Mileage at that valuation<input id="anchorMileageInput" type="number" inputmode="numeric" min="0" step="1"></label>
+        <button id="saveBtn" style="margin-top:12px">Save reference valuation</button>
+      </details>
+      <details>
+        <summary>Estimate assumptions</summary>
+        <div class="tiny">Illustrative assumptions, not a live market valuation: 0.75% monthly loss with time, plus 5p per mile driven since the reference valuation. These rates are adjustable and have not been calibrated to your Tesla. Future graph values assume the annual mileage below.</div>
+        <label style="margin-top:10px">Monthly depreciation (%)<input id="monthlyInput" type="number" min="0" max="10" step="0.05"></label>
+        <label style="margin-top:10px">Mileage adjustment (pence per mile)<input id="penceInput" type="number" min="0" max="100" step="0.5"></label>
+        <label style="margin-top:10px">Annual mileage for forecast<input id="annualInput" type="number" min="0" max="100000" step="1000"></label>
+        <button id="saveAssumptionsBtn" style="margin-top:12px">Save assumptions</button>
+      </details>
       <div class="tiny" id="saveMsg" aria-live="polite"></div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Market basis</h2><span id="sourceDate">10 Sep 2026</span></div>
+    <div class="section-title"><h2>Reference valuation</h2><span id="sourceDate"></span></div>
     <div class="card">
-      <div class="source">
-        Seed estimate: <strong style="color:var(--text)">£19,250</strong>, based on recent UK 2021 Model 3 Long Range AWD listings around 46k–56k miles.
-        Your WBAC quote is stored separately because it is a more realistic “sell it now” figure.
-      </div>
-      <details>
-        <summary>Comparable listing references</summary>
-        <div class="source" style="margin-top:10px">
-          <div>• White, 50,454 mi — £19,950</div>
-          <div>• White, 48,182 mi — £19,699</div>
-          <div>• White, 55,810 mi — £18,580</div>
-          <div>• 49,559 mi — £18,950</div>
-          <div>• 51,119 mi — £20,995</div>
-          <div>• 46,342 mi — £19,640</div>
-        </div>
-      </details>
+      <div class="source" id="referenceNote"></div>
+      <div class="tiny">The original £19,250 market estimate and £16,990 WBAC quote were recorded on 10 September 2026 at 52,168 miles. Your estimates move from the reference date; they do not refresh from listing sites. A new valuation resets the reference.</div>
     </div>
   </div>
 
@@ -190,86 +184,81 @@
 (() => {
   const P=50000, APR=.028, N=84, R=APR/12;
   const PAY=P*R/(1-Math.pow(1+R,-N));
-  const firstPayment={y:2022,m:2}; // March 2022, zero-indexed month
-  const defaultState={market:19250,wback:16990,date:"2026-09-10",mileage:52168};
-
-  const fmt=n => "£"+Math.round(n).toLocaleString("en-GB");
+  const defaults={market:19250,wback:16990,date:"2026-09-10",mileage:52168,anchorMileage:52168,monthlyPct:0.75,pencePerMile:5,annualMiles:8000};
+  const $=id=>document.getElementById(id);
+  const fmt=n=>"£"+Math.round(n).toLocaleString("en-GB");
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
-
-  function loadState(){
-    try {
-      const raw=localStorage.getItem("teslaEquityState");
-      const saved=raw ? {...defaultState,...JSON.parse(raw)} : {...defaultState};
-      if(!Number.isSafeInteger(saved.mileage)||saved.mileage<0) saved.mileage=defaultState.mileage;
-      return saved;
-    } catch(e) { return defaultState; }
+  const validMiles=n=>Number.isSafeInteger(n)&&n>=0;
+  const dayNumber=d=>Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000;
+  function parseDay(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(s+"T12:00:00");return Number.isFinite(+d)&&d.getFullYear()===Number(s.slice(0,4))&&d.getMonth()+1===Number(s.slice(5,7))&&d.getDate()===Number(s.slice(8,10))?d:null;}
+  let state={...defaults};
+  try{
+    const saved=JSON.parse(localStorage.getItem("teslaEquityState")||"{}");
+    state={...defaults,...saved};
+    // Older saved valuations did not record reference mileage. Use their saved mileage when available.
+    if(!validMiles(saved.anchorMileage))state.anchorMileage=validMiles(saved.mileage)?saved.mileage:defaults.anchorMileage;
+  }catch(e){}
+  for(const key of ["mileage","anchorMileage"])if(!validMiles(state[key]))state[key]=defaults[key];
+  for(const key of ["market","wback","monthlyPct","pencePerMile","annualMiles"])if(!Number.isFinite(state[key])||state[key]<0)state[key]=defaults[key];
+  state.monthlyPct=clamp(state.monthlyPct,0,10);
+  if(!parseDay(state.date))state.date=defaults.date;
+  let today,paid,bal;
+  function paidCount(d){return clamp((d.getFullYear()-2022)*12+d.getMonth()-2+1,0,N);}
+  function balanceAfter(k){if(k<=0)return P;if(k>=N)return 0;return P*Math.pow(1+R,k)-PAY*(Math.pow(1+R,k)-1)/R;}
+  function estimateAt(date,mileage){
+    const months=Math.max(0,dayNumber(date)-dayNumber(parseDay(state.date)))/(365.25/12);
+    const timeFactor=Math.pow(1-state.monthlyPct/100,months);
+    const mileageLoss=Math.max(0,mileage-state.anchorMileage)*state.pencePerMile/100;
+    return {market:Math.max(0,state.market*timeFactor-mileageLoss),wback:Math.max(0,state.wback*timeFactor-mileageLoss)};
   }
-  function saveState(s){ try{localStorage.setItem("teslaEquityState",JSON.stringify(s));return true;}catch(e){return false;} }
-
-  function paidCount(d){
-    let k=(d.getFullYear()-firstPayment.y)*12+(d.getMonth()-firstPayment.m)+1;
-    return clamp(k,0,N);
+  function populate(){
+    for(const [id,key] of Object.entries({mileageInput:"mileage",anchorMileageInput:"anchorMileage",marketInput:"market",wbackInput:"wback",valueDateInput:"date",monthlyInput:"monthlyPct",penceInput:"pencePerMile",annualInput:"annualMiles"}))$(id).value=state[key];
   }
-  function balanceAfter(k){
-    if(k<=0) return P;
-    if(k>=N) return 0;
-    return P*Math.pow(1+R,k)-PAY*((Math.pow(1+R,k)-1)/R);
+  function message(text){$("saveMsg").textContent=text;}
+  function save(next){
+    try{localStorage.setItem("teslaEquityState",JSON.stringify(next));}
+    catch(e){message("Could not save on this device. Please allow browser storage and try again.");return;}
+    state=next;render();message("Saved on this device.");
   }
-
-  const today=new Date();
-  const paid=paidCount(today);
-  const bal=balanceAfter(paid);
-  const left=N-paid;
-  let state=loadState();
-
-  document.getElementById("todayPill").textContent=today.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-  document.getElementById("loanBalance").textContent=fmt(bal);
-  document.getElementById("loanLeft").textContent=left+" payment"+(left===1?"":"s")+" remaining";
-  document.getElementById("paymentText").textContent=fmt(PAY)+"/month";
-  document.getElementById("paidText").textContent=paid+" of "+N;
-  document.getElementById("progressBar").style.width=(paid/N*100).toFixed(1)+"%";
-
-  const mileageInput=document.getElementById("mileageInput");
-  mileageInput.value=state.mileage;
-  const marketInput=document.getElementById("marketInput");
-  const wbackInput=document.getElementById("wbackInput");
-  const dateInput=document.getElementById("valueDateInput");
-  marketInput.value=state.market;
-  wbackInput.value=state.wback;
-  dateInput.value=state.date;
-
-  function renderValues(){
-    document.getElementById("mileageText").textContent=state.mileage.toLocaleString("en-GB");
-    const market=Number(state.market)||0, wback=Number(state.wback)||0;
-    const marketEq=market-bal, instantEq=wback-bal;
-    document.getElementById("marketValue").textContent=fmt(market);
-    document.getElementById("wbackValue").textContent=fmt(wback);
-    const me=document.getElementById("marketEquity"), ie=document.getElementById("instantEquity");
-    me.textContent=(marketEq>=0?"+":"−")+fmt(Math.abs(marketEq));
-    ie.textContent=(instantEq>=0?"+":"−")+fmt(Math.abs(instantEq));
-    me.className="hero-value "+(marketEq>=0?"good":"bad");
-    ie.className="value "+(instantEq>=0?"good":"bad");
-    document.getElementById("marketEquityNote").textContent=marketEq>=0
-      ? "Approx. positive equity at the current market estimate"
-      : "Approx. negative equity at the current market estimate";
+  function render(){
+    today=new Date();paid=paidCount(today);bal=balanceAfter(paid);
+    const current=estimateAt(today,state.mileage),market=current.market,wback=current.wback;
+    $("todayPill").textContent=today.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    $("mileageText").textContent=state.mileage.toLocaleString("en-GB");
+    $("loanBalance").textContent=fmt(bal);
+    $("loanLeft").textContent=(N-paid)+" payments remaining";
+    $("paymentText").textContent=fmt(PAY)+"/month";
+    $("paidText").textContent=paid+" of "+N;
+    $("progressBar").style.width=(paid/N*100).toFixed(1)+"%";
+    $("marketValue").textContent=fmt(market);$("wbackValue").textContent=fmt(wback);
+    for(const [id,value,cls] of [["marketEquity",market-bal,"hero-value"],["instantEquity",wback-bal,"value"]]){
+      $(id).textContent=(value>=0?"+":"−")+fmt(Math.abs(value));$(id).className=cls+" "+(value>=0?"good":"bad");
+    }
+    $("marketEquityNote").textContent="Estimated today's value minus calculated loan balance";
+    $("estimateNote").textContent="Adjusted for elapsed time and recorded mileage";
+    $("quoteNote").textContent="Estimate; last actual WBAC quote "+fmt(state.wback);
+    $("sourceDate").textContent=parseDay(state.date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    $("referenceNote").textContent="Market "+fmt(state.market)+" · WBAC "+fmt(state.wback)+" · "+state.anchorMileage.toLocaleString("en-GB")+" miles. "+
+      (state.mileage<state.anchorMileage?"Current mileage is below reference mileage; check both readings. No mileage uplift is applied.":"");
     drawChart(market,wback);
   }
-
   function drawChart(market,wback){
     const svg=document.getElementById("chart");
     const W=640,H=260,L=46,RGT=14,T=18,B=32;
     const plotW=W-L-RGT, plotH=H-T-B;
-    const maxY=50000;
+    const maxY=Math.max(50000,market*1.1,wback*1.1);
     const x=i=>L+(i/N)*plotW;
     const y=v=>T+(1-v/maxY)*plotH;
     let loanPts=[];
     for(let i=0;i<=N;i++) loanPts.push(x(i).toFixed(1)+","+y(balanceAfter(i)).toFixed(1));
-    // Simple depreciation projection from current value: 0.75% per month, floor 9000
+    // Forecast from the same dated reference and assumptions as the headline.
     let marketPts=[], wbackPts=[];
     for(let i=paid;i<=N;i++){
       const t=i-paid;
-      const mv=Math.max(9000,market*Math.pow(.9925,t));
-      const wv=Math.max(7500,wback*Math.pow(.9925,t));
+      const future=new Date(today); future.setMonth(future.getMonth()+t);
+      const projected=estimateAt(future,state.mileage+state.annualMiles*t/12);
+      const mv=projected.market;
+      const wv=projected.wback;
       marketPts.push(x(i).toFixed(1)+","+y(mv).toFixed(1));
       wbackPts.push(x(i).toFixed(1)+","+y(wv).toFixed(1));
     }
@@ -297,33 +286,28 @@
     `;
   }
 
-  document.getElementById("saveBtn").addEventListener("click",()=>{
-    const mileage=Number(mileageInput.value);
-    if(!mileageInput.value.trim()||!Number.isSafeInteger(mileage)||mileage<0){
-      document.getElementById("saveMsg").textContent="Enter mileage as a whole number of miles, zero or above.";
-      mileageInput.focus();
-      return;
-    }
-    const m=Number(marketInput.value), w=Number(wbackInput.value), d=dateInput.value;
-    if(!Number.isFinite(m)||m<0||!Number.isFinite(w)||w<0||!d){
-      document.getElementById("saveMsg").textContent="Please enter valid values and a date.";
-      return;
-    }
-    const nextState={market:m,wback:w,date:d,mileage};
-    if(!saveState(nextState)){
-      document.getElementById("saveMsg").textContent="Could not save on this device. Please allow browser storage and try again.";
-      return;
-    }
-    state=nextState;
-    renderValues();
-    document.getElementById("saveMsg").textContent="Saved on this device.";
-    setTimeout(()=>document.getElementById("saveMsg").textContent="",1800);
+
+  $("saveMileageBtn").addEventListener("click",()=>{
+    const mileage=Number($("mileageInput").value);
+    if(!$("mileageInput").value.trim()||!validMiles(mileage)){message("Enter mileage as a whole number, zero or above.");return;}
+    save({...state,mileage});
   });
-
-  renderValues();
-
+  $("saveBtn").addEventListener("click",()=>{
+    const market=Number($("marketInput").value),wback=Number($("wbackInput").value),anchorMileage=Number($("anchorMileageInput").value),date=$("valueDateInput").value;
+    if(!["marketInput","wbackInput","anchorMileageInput"].every(id=>$(id).value.trim())||!Number.isFinite(market)||market<0||!Number.isFinite(wback)||wback<0||!validMiles(anchorMileage)||!parseDay(date)||dayNumber(parseDay(date))>dayNumber(new Date())){message("Enter valid prices, whole-number reference mileage and a date no later than today.");return;}
+    save({...state,market,wback,anchorMileage,date});
+  });
+  $("saveAssumptionsBtn").addEventListener("click",()=>{
+    const monthlyPct=Number($("monthlyInput").value),pencePerMile=Number($("penceInput").value),annualMiles=Number($("annualInput").value);
+    if(!["monthlyInput","penceInput","annualInput"].every(id=>$(id).value.trim())||!Number.isFinite(monthlyPct)||monthlyPct<0||monthlyPct>10||!Number.isFinite(pencePerMile)||pencePerMile<0||pencePerMile>100||!validMiles(annualMiles)||annualMiles>100000){message("Check the estimate assumptions: monthly loss 0–10%, mileage adjustment 0–100p, annual mileage 0–100,000.");return;}
+    save({...state,monthlyPct,pencePerMile,annualMiles});
+  });
+  populate();render();
+  window.addEventListener("pageshow",render);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)render();});
+  setInterval(render,60000);
   if("serviceWorker" in navigator){
-    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").then(r=>r.update()).catch(()=>{}));
   }
 })();
 </script>
