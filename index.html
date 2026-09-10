@@ -80,7 +80,7 @@
   <div class="top">
     <div>
       <h1>Model 3 Equity</h1>
-      <div class="sub">2021 Long Range AWD · Acceleration Boost · 52,168 mi</div>
+      <div class="sub">2021 Long Range AWD · Acceleration Boost · <span id="mileageText">52,168</span> mi</div>
     </div>
     <div class="pill" id="todayPill">Today</div>
   </div>
@@ -138,9 +138,13 @@
   </div>
 
   <div class="section">
-    <div class="section-title"><h2>Update valuation</h2><span>stored on this iPhone</span></div>
+    <div class="section-title"><h2>Update mileage &amp; valuation</h2><span>stored on this iPhone</span></div>
     <div class="card">
-      <div class="edit-grid">
+      <label>Current mileage (miles)
+        <input id="mileageInput" type="number" inputmode="numeric" min="0" step="1" required>
+      </label>
+      <div class="tiny">Mileage is recorded here; update prices below when you get a new valuation.</div>
+      <div class="edit-grid" style="margin-top:12px">
         <label>Market estimate (£)
           <input id="marketInput" type="number" inputmode="numeric" min="0" step="50">
         </label>
@@ -151,7 +155,7 @@
       <label style="margin-top:10px">Valuation date
         <input id="valueDateInput" type="date">
       </label>
-      <button id="saveBtn" style="margin-top:12px">Save valuation</button>
+      <button id="saveBtn" style="margin-top:12px">Save details</button>
       <div class="tiny" id="saveMsg" aria-live="polite"></div>
     </div>
   </div>
@@ -187,7 +191,7 @@
   const P=50000, APR=.028, N=84, R=APR/12;
   const PAY=P*R/(1-Math.pow(1+R,-N));
   const firstPayment={y:2022,m:2}; // March 2022, zero-indexed month
-  const defaultState={market:19250,wback:16990,date:"2026-09-10"};
+  const defaultState={market:19250,wback:16990,date:"2026-09-10",mileage:52168};
 
   const fmt=n => "£"+Math.round(n).toLocaleString("en-GB");
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
@@ -195,10 +199,12 @@
   function loadState(){
     try {
       const raw=localStorage.getItem("teslaEquityState");
-      return raw ? {...defaultState,...JSON.parse(raw)} : defaultState;
+      const saved=raw ? {...defaultState,...JSON.parse(raw)} : {...defaultState};
+      if(!Number.isSafeInteger(saved.mileage)||saved.mileage<0) saved.mileage=defaultState.mileage;
+      return saved;
     } catch(e) { return defaultState; }
   }
-  function saveState(s){ try{localStorage.setItem("teslaEquityState",JSON.stringify(s));}catch(e){} }
+  function saveState(s){ try{localStorage.setItem("teslaEquityState",JSON.stringify(s));return true;}catch(e){return false;} }
 
   function paidCount(d){
     let k=(d.getFullYear()-firstPayment.y)*12+(d.getMonth()-firstPayment.m)+1;
@@ -223,6 +229,8 @@
   document.getElementById("paidText").textContent=paid+" of "+N;
   document.getElementById("progressBar").style.width=(paid/N*100).toFixed(1)+"%";
 
+  const mileageInput=document.getElementById("mileageInput");
+  mileageInput.value=state.mileage;
   const marketInput=document.getElementById("marketInput");
   const wbackInput=document.getElementById("wbackInput");
   const dateInput=document.getElementById("valueDateInput");
@@ -231,6 +239,7 @@
   dateInput.value=state.date;
 
   function renderValues(){
+    document.getElementById("mileageText").textContent=state.mileage.toLocaleString("en-GB");
     const market=Number(state.market)||0, wback=Number(state.wback)||0;
     const marketEq=market-bal, instantEq=wback-bal;
     document.getElementById("marketValue").textContent=fmt(market);
@@ -289,13 +298,23 @@
   }
 
   document.getElementById("saveBtn").addEventListener("click",()=>{
+    const mileage=Number(mileageInput.value);
+    if(!mileageInput.value.trim()||!Number.isSafeInteger(mileage)||mileage<0){
+      document.getElementById("saveMsg").textContent="Enter mileage as a whole number of miles, zero or above.";
+      mileageInput.focus();
+      return;
+    }
     const m=Number(marketInput.value), w=Number(wbackInput.value), d=dateInput.value;
     if(!Number.isFinite(m)||m<0||!Number.isFinite(w)||w<0||!d){
       document.getElementById("saveMsg").textContent="Please enter valid values and a date.";
       return;
     }
-    state={market:m,wback:w,date:d};
-    saveState(state);
+    const nextState={market:m,wback:w,date:d,mileage};
+    if(!saveState(nextState)){
+      document.getElementById("saveMsg").textContent="Could not save on this device. Please allow browser storage and try again.";
+      return;
+    }
+    state=nextState;
     renderValues();
     document.getElementById("saveMsg").textContent="Saved on this device.";
     setTimeout(()=>document.getElementById("saveMsg").textContent="",1800);
